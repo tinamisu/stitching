@@ -21,70 +21,47 @@ overlapCheck <- function(focal,test) {
 
 ### READ IN BLAT DATA
 ####################################################################################################
-blat2dmel <- read.csv("contigs_63_Dmel.psl",header=F,sep="\t",skip=6,as.is=T)
-names(blat2dmel) <- c("match","mismatch","repMatch","Ns","gapCount","gapBases","ref_gapCount","ref_gapBases","strand","contig","contigLength","start","end","refChr","refSize","refStart","refEnd","blocks","blockSizes","blockStarts","ref_blockStarts")
-
+blat2dmel <- read.csv("dmelARMS2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
+names(blat2dmel) <- c("match","mismatch","repMatch","Ns","ref_gapCount","ref_gapBases","gapCount","gapBases","strand",
+                      "refChr","refSize","refStart","refEnd",
+                      "contig","contigLength","start","end",
+                      "blocks","blockSizes","ref_blockStarts","blockStarts")
 blat2dmel$alnLength <- blat2dmel$match + blat2dmel$mismatch + blat2dmel$repMatch + blat2dmel$Ns
 
-blat2dsim <- read.csv("contigs_63_Dsim.psl",header=F,sep="\t",skip=6,as.is=T)
-names(blat2dsim) <- c("match","mismatch","repMatch","Ns","gapCount","gapBases","ref_gapCount","ref_gapBases","strand","contig","contigLength","start","end","refChr","refSize","refStart","refEnd","blocks","blockSizes","blockStarts","ref_blockStarts")
+blat2dsim <- read.csv("dsimARMS2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
+names(blat2dsim) <- c("match","mismatch","repMatch","Ns","ref_gapCount","ref_gapBases","gapCount","gapBases","strand",
+                      "refChr","refSize","refStart","refEnd",
+                      "contig","contigLength","start","end",
+                      "blocks","blockSizes","ref_blockStarts","blockStarts")
 blat2dsim$alnLength <- blat2dsim$match + blat2dsim$mismatch + blat2dsim$repMatch + blat2dsim$Ns
 
-
-### how many are mapping to neither dmel or dsim
-all_contigs <- read.table("contig_sizes",header=F,sep="\t",as.is=T)
-all_contigs <- all_contigs[all_contigs$V2>=1000,]
-
-mapped2dmel <- all_contigs[all_contigs$V1 %in% unique(as.vector(blat2dmel$contig)),]
-mapped2dsim <- all_contigs[all_contigs$V1 %in% unique(as.vector(blat2dsim$contig)),]
-mapped2dsimORdmel <- all_contigs[all_contigs$V1 %in% unique(c(as.vector(blat2dsim$contig),as.vector(blat2dsim$contig))),]
-unmapped <- all_contigs[! all_contigs$V1 %in% unique(c(mapped2dmel$V1,mapped2dsim$V1)),]
-
-tmp<-read.table("dmel_contigs.out",header=F,as.is=T)
-unique2dmel <- all_contigs[all_contigs$V1 %in% unique(as.vector(tmp$V1)),]
-dup2dmel <- all_contigs[all_contigs$V1 %in% unique(as.vector(blat2dmel$contig)) & !(all_contigs$V1 %in% unique(as.vector(tmp$V1))),]
-
-cat(sprintf("Total #contigs %d, #bps %d stitched with dmel",nrow(unique2dmel),sum(unique2dmel$V2)))
-cat(sprintf("Total #contigs %d, #bps %d mapped but not stitched with dmel",nrow(dup2dmel),sum(dup2dmel$V2)))
-cat(sprintf("Total #contigs %d, #bps %d mapping to  EITHER to dmel  OR dsim",nrow(mapped2dsimORdmel),sum(mapped2dsimORdmel$V2)))
-cat(sprintf("Total #contigs %d, #bps %d mapping to NEITHER to dmel NOR dsim",nrow(unmapped),sum(unmapped$V2)))
-write.table(file="unmapped_contigs.tsv",unmapped,quote=F,sep="\t",row.names=F,col.names=c("contig_unmapped","size"))
-write.table(file="mapped_contigs.tsv",unique2dmel,quote=F,sep="\t",row.names=F,col.names=c("contig_unique","size"))
-write.table(file="dup_mapped_contigs.tsv",dup2dmel,quote=F,sep="\t",row.names=F,col.names=c("contig_dup","size"))
-
-
-
-
-### how many are mapping to neither dmel or dsim that are > 1kb
 
 ### FILTER DATA
 ####################################################################################################
 # [1] "Dmel starting with: 202117"
 cat(sprintf("Dmel starting with: %d",nrow(blat2dmel)))
+cat(sprintf("Dsim starting with: %d",nrow(blat2dsim)))
 
-# [1] "Dmel removing <1000 bp hits: 202117"
-# [1] "Dmel retaining: 28626"
 bad <- blat2dmel$alnLength < min_match
 blat2dmel <- blat2dmel[!bad,]
 cat(sprintf("Dmel removing <%d bp hits: %d",min_match,length(bad)))
 cat(sprintf("Dmel retaining: %d",nrow(blat2dmel)))
 rm(bad)
 
+bad <- blat2dsim$alnLength < min_match
+blat2dsim <- blat2dsim[!bad,]
+cat(sprintf("Dsim removing <%d bp hits: %d",min_match,length(bad)))
+cat(sprintf("Dsim retaining: %d",nrow(blat2dsim)))
+rm(bad)
+
+
 ### FILTER CONTIGS FOR STITCHING (contigs > 10000)
 ####################################################################################################
-# [1] "Dmel|Dsim contigs >= 10k starting with: 1435"
-# [1] "Dmel&Dsim contigs >= 10k starting with: 1426"
-# print(length(unique(blat2dmel[blat2dmel$contigLength >= min_contig_length,"contig"])))
-# print(length(unique(blat2dsim[blat2dsim$contigLength >= min_contig_length,"contig"])))
-
 contigs4stitching <- unique(blat2dmel[blat2dmel$contigLength >= min_contig_length,"contig"])
 cat(sprintf("contigs hitting dmel >= %d bps: %d",min_contig_length,length(contigs4stitching)))
 
 ####################################################################################################
-#chroms <- c("2R")
 chroms <- c("2L","2R","3L","3R","X","4")
-#chroms <- c("3R","X","4")
-
 for (chr in chroms) {
    cat(sprintf("\n*** Working on chromosome %s ***\n",chr))
    data_dmel <- blat2dmel[blat2dmel$refChr==chr & blat2dmel$contig %in% contigs4stitching,]
