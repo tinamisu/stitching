@@ -1,54 +1,29 @@
+#!/usr/bin/env Rscript
+source("~/R/getopts.R")
+
 ### 04.14.11
-### plot
-
-# blatData <- read.csv("contigsVsDsim.psl",header=F,sep="\t",skip=6)
-# names(blatData) <- c("match","mismatch","repMatch","Ns","gapCount","gapBases","ref_gapCount","ref_gapBases","strand","contig","contigLength","start","end","refChr","refSize","refStart","refEnd","blocks","blockSizes","blockStarts","ref_blockStarts")
-# 
-# TEdata <- read.csv("testTE.psl",header=F,sep="\t",skip=6)
-# names(TEdata) <- c("match","mismatch","repMatch","Ns","gapCount","gapBases","ref_gapCount","ref_gapBases","strand","contig","contigLength","start","end","refChr","refSize","refStart","refEnd","blocks","blockSizes","blockStarts","ref_blockStarts")
-# 
-# ### blockSizes,blockStarts,ref_blockStarts
-# TEhits <- unlist(lapply(as.vector(TEdata$blockStarts),function(x) { strsplit(x,split=",")}))
-# 
-# ### order ref chroms by the amount of match to the contig
-# 
-# ### convert to list
-# 
-# for (chrom in levels(data$refChr)) {
-# 
-# yLimits <- {};
-# 
-# plotData <- data[data$refChr=="3L",]
-# plotBlatData <- blatData[blatData$refChr=="3L",]
-# 
-# yRange <- range(c(unlist(plotData[,c("refStart","refEnd")]),unlist(plotBlatData[,c("refStart","refEnd")])))
-# plot(0,0,xlim=c(1,500108),ylim=yRange,col="transparent",xlab="contig",ylab="dsim REF")
-# rect(TEdata$start,rep(0,nrow(TEdata)),TEdata$end,rep(yRange[2],nrow(TEdata)),col="yellow",bor="goldenrod")
-# arrows(TEdata$start,rep(-5,nrow(TEdata)),TEdata$end,rep(-5,nrow(TEdata)),col="orange")
-# segments(plotBlatData$start,plotBlatData$refStart,plotBlatData$end,plotBlatData$refEnd,col="red",lwd=5)
-# segments(plotData$start,plotData$refStart,plotData$end,plotData$refEnd)
-# 
-# #contigName <- "NODE_82870_length_791080_cov_18.549400"
-
+### plot BLAT hits (after filtering)
+opts <- getopts()
+blatFile <- opts$f
+species <- opts$s
 
 ### BAD REGIONS (from MSG)
 ####################################################################################################
 #mask <- read.table("../badRegions_msg_S9.1.csv",header=T,as.is=T)
-
+#segColors <- c("royalblue","darkred","forestgreen")
 
 ### READ IN BLAT DATA
 ####################################################################################################
-full_blatData <- read.csv("min1000_dsimARMS2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
+full_blatData <- read.csv(blatFile,header=F,sep="\t",skip=6,as.is=T)
 names(full_blatData) <- c("match","mismatch","repMatch","Ns","ref_gapCount","ref_gapBases","gapCount","gapBases","strand","refChr","refSize","refStart","refEnd","contig","contigLength","start","end","blocks","blockSizes","ref_blockStarts","blockStarts")
-
-print(paste("starting with:",nrow(full_blatData)))
+cat(sprintf("starting with: %d\n",nrow(full_blatData)))
 
 ### FILTER CONTIGS THAT HAVE HITS > 10000
 blatData <- full_blatData[full_blatData$contigLength >= 1000,]
 ok <- blatData$match+blatData$mismatch+blatData$repMatch+blatData$Ns < 500
-print(paste("removing <1000 bp hits:",length(ok)))
+cat(sprintf("removing <1000 bp hits: %d\n",length(ok)))
 blatData <- blatData[!ok,]
-print(paste("retaining:",nrow(blatData)))
+cat(sprintf("retaining: %d\n",nrow(blatData)))
 
 
 ### SUMMARIZE THE REF CHROMS
@@ -56,32 +31,22 @@ print(paste("retaining:",nrow(blatData)))
 mainArms <- c("2L","2R","3L","3R","X","4")
 plotChroms <- unique(full_blatData[,c("refChr","refSize")])
 row.names(plotChroms) <- plotChroms$refChr
-plotChroms <- plotChroms[mainArms,]
+plotChroms <- plotChroms[rownames(plotChroms) %in% mainArms,]
 #plotChroms <- plotChroms[c(mainArms,setdiff(row.names(plotChroms),mainArms)),]
 #plotChroms <- plotChroms[order(plotChroms$refSize,decreasing=T),]
 plotChroms$plotStarts <- c(0,cumsum(plotChroms$refSize)[-length(plotChroms$refSize)])
 
-#plotContigs <- unique(blatData[,c("contig","contigLength")])
-#plotContigs <- plotContigs[order(plotContigs$contigLength,decreasing=T),]
-#plotContigs$plotStarts <- c(0,cumsum(plotContigs$contigLength)[-length(plotContigs$contigLength)])
-
 ### remove hits from non-arms
-blatData <- blatData[blatData$refChr %in% mainArms,]
+blatData <- blatData[blatData$refChr %in% as.vector(plotChroms$refChr),]
 
 
 ####################################################################################################
-pdf("contigs2dsim.pdf",width=20,height=12)
-#par(mfrow=c(length(chroms),1),mfrow=c(3,3,0.5,.5))
+pdf(sprintf("contigs2%s.pdf",species),width=20,height=12)
 par(mar=c(14,3,0.5,1),bg="transparent")
 yRange <- c(0,sum(plotChroms$refSize))
 xRange <- c(0,sum(unique(blatData[,c("contig","contigLength")])$contigLength))
 
 plot(0,0,xlim=xRange,ylim=yRange,xlab="",ylab="",col="transparent",axes=F,xaxs="i",yaxs="i")
-#for (m in 1:nrow(mask)) {
-#   if (mask[m,]$chr %in% plotChroms$refChr) {
-#      rect(xRange[1],mask[m,]$start+plotChroms[plotChroms$refChr==mask[m,]$chr,]$plotStarts,xRange[2],mask[m,]$end+plotChroms[plotChroms$refChr==mask[m,]$chr,]$plotStarts,col="yellow",bor="transparent")
-#   }
-#}
 abline(h=plotChroms$plotStarts,col="gray28")
 mtext(plotChroms$refChr,side=2,line=.5,at=plotChroms$plotStarts,las=2)
 box(col="gray68")
@@ -128,9 +93,8 @@ for (refChrom in as.vector(plotChroms$refChr)) {
    }
 
 }
-
 #abline(v=plotContigs$plotStarts,col="gray68")
-#mtext(plotContigs$contig,side=1,line=.5,at=plotContigs$plotStarts,las=2,cex=.68)
+mtext(plotContigs$contig,side=1,line=.5,at=plotContigs$plotStarts,las=2,cex=.68)
 
 dev.off()
 #save.image()
