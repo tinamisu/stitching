@@ -21,7 +21,7 @@ overlapCheck <- function(focal,test) {
 
 ### READ IN BLAT DATA
 ####################################################################################################
-blat2dmel <- read.csv("dmelARMS2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
+blat2dmel <- read.csv("dmelARMS_3Rinv2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
 names(blat2dmel) <- c("match","mismatch","repMatch","Ns","ref_gapCount","ref_gapBases","gapCount","gapBases","strand",
                       "refChr","refSize","refStart","refEnd",
                       "contig","contigLength","start","end",
