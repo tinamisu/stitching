@@ -33,33 +33,22 @@
 
 ### BAD REGIONS (from MSG)
 ####################################################################################################
-mask <- read.table("../badRegions_msg_S9.1.csv",header=T,as.is=T)
+#mask <- read.table("../badRegions_msg_S9.1.csv",header=T,as.is=T)
 
 
 ### READ IN BLAT DATA
 ####################################################################################################
-full_blatData <- read.csv("dmelARMS_3Rinv2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
-#full_blatData <- read.csv("contigs_63_Dsim.psl",header=F,sep="\t",skip=6,as.is=T)
-#blatData <- read.csv("contigs_min790000.psl",header=F,sep="\t",skip=6)
+full_blatData <- read.csv("min1000_dsimARMS2contigs.psl",header=F,sep="\t",skip=6,as.is=T)
 names(full_blatData) <- c("match","mismatch","repMatch","Ns","ref_gapCount","ref_gapBases","gapCount","gapBases","strand","refChr","refSize","refStart","refEnd","contig","contigLength","start","end","blocks","blockSizes","ref_blockStarts","blockStarts")
-#names(full_blatData) <- c("match","mismatch","repMatch","Ns","gapCount","gapBases","ref_gapCount","ref_gapBases","strand","contig","contigLength","start","end","refChr","refSize","refStart","refEnd","blocks","blockSizes","blockStarts","ref_blockStarts")
 
 print(paste("starting with:",nrow(full_blatData)))
 
 ### FILTER CONTIGS THAT HAVE HITS > 10000
-#blatData <- full_blatData[full_blatData$contigLength >= 500000,]
 blatData <- full_blatData[full_blatData$contigLength >= 1000,]
-#blatData <- full_blatData[full_blatData$contigLength >= 10000,]
-
-#ok <- blatData$match+blatData$mismatch+blatData$repMatch+blatData$Ns < 5000
 ok <- blatData$match+blatData$mismatch+blatData$repMatch+blatData$Ns < 500
-#ok <- blatData$match+blatData$mismatch+blatData$repMatch+blatData$Ns < 1000
 print(paste("removing <1000 bp hits:",length(ok)))
 blatData <- blatData[!ok,]
 print(paste("retaining:",nrow(blatData)))
-
-### ADD IN TE matches
-
 
 
 ### SUMMARIZE THE REF CHROMS
@@ -81,8 +70,6 @@ blatData <- blatData[blatData$refChr %in% mainArms,]
 
 
 ####################################################################################################
-segColors <- c("royalblue","darkred","forestgreen")
-
 pdf("contigs2dsim.pdf",width=20,height=12)
 #par(mfrow=c(length(chroms),1),mfrow=c(3,3,0.5,.5))
 par(mar=c(14,3,0.5,1),bg="transparent")
