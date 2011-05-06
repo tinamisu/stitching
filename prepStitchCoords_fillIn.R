@@ -67,30 +67,70 @@ blat2dsim <- blat2dmel[1,]
 
 ### break apart blat hits if they appear to be chimeras
 blat2dmel$ref_maxGapSize <- 0
-#blat2dmel$contig_maxGapSize <- 0
+chimerasSplit <- {}
+chimeras <- {}
 for (i in 1:nrow(blat2dmel)) {
    if (blat2dmel[i,]$blocks > 1) {
+      ### DETERMINE distances between blocks
       blockSizes <- as.numeric(unlist(strsplit(blat2dmel[i,]$blockSizes,split=",")))
-
       ref_blockStarts <- as.numeric(unlist(strsplit(blat2dmel[i,]$ref_blockStarts,split=",")))
-      blocks <- as.data.frame(cbind(ref_blockStarts,ref_blockStarts+blockSizes))
-      names(blocks) <- c("start","end")
-      blocks <- blocks[order(blocks$start),]
-      blocks$dist2last <- c(0,blocks[-1,]$end - blocks[-nrow(blocks),]$start)
-      blat2dmel[i,]$ref_maxGapSize <- max(blocks$dist2last) 
+      refBlocks <- as.data.frame(cbind(ref_blockStarts,ref_blockStarts+blockSizes))
+      names(refBlocks) <- c("start","end")
 
-#      contig_blockStarts <- as.numeric(unlist(strsplit(blat2dmel[i,]$blockStarts,split=",")))
-#      if (blat2dmel[i,]$strand == "-") { contig_blockStarts <- blat2dmel[i,]$contigLength - contig_blockStarts }
-#      blocks <- as.data.frame(cbind(contig_blockStarts,contig_blockStarts+blockSizes))
-#      names(blocks) <- c("start","end")
-#      blocks <- blocks[order(blocks$start),]
-#      dist2last <- blocks[-1,]$end - blocks[-nrow(blocks),]$start
-#      blat2dmel[i,]$contig_maxGapSize <- max(dist2last) 
-#
-#      #where2split <- which(dist2last > 1000)#==max(dist2last))
-#      #where2split <- which(dist2last==max(dist2last))
+      refBlocks <- refBlocks[order(refBlocks$start),]
+      refBlocks$dist2last <- c(0,refBlocks[-1,]$end - refBlocks[-nrow(refBlocks),]$start)
+      blat2dmel[i,]$ref_maxGapSize <- max(refBlocks$dist2last) 
+
+      contig_blockStarts <- as.numeric(unlist(strsplit(blat2dmel[i,]$blockStarts,split=",")))
+      contigBlocks <- as.data.frame(cbind(contig_blockStarts,contig_blockStarts+blockSizes))
+      if (blat2dmel[i,]$strand == "-") { 
+         contig_blockStarts <- blat2dmel[i,]$contigLength - contig_blockStarts 
+         contigBlocks <- as.data.frame(cbind(contig_blockStarts,contig_blockStarts-blockSizes))
+      }
+      names(contigBlocks) <- c("start","end")
+
+      ### DETERMINE split positions
+      ### update start,end and refStart,refEnd positions
+      where2split <- which(refBlocks$dist2last >= 10000)
+      last_w <- 1
+      for (w in where2split) {
+         newHit <- blat2dmel[i,]
+         if (newHit$strand == "-") {
+            newHit$refEnd   <- refBlocks[last_w,]$start
+            newHit$refStart <- refBlocks[w-1,]$end
+            newHit$end      <- contigBlocks[last_w,]$start
+            newHit$start    <- contigBlocks[w-1,]$end
+         } else { 
+            newHit$refStart <- refBlocks[last_w,]$start
+            newHit$refEnd   <- refBlocks[w-1,]$end
+            newHit$start    <- contigBlocks[last_w,]$start
+            newHit$end      <- contigBlocks[w-1,]$end
+         }
+         chimerasSplit <- rbind(chimerasSplit,newHit)
+         last_w <- w
+      }
+
+      ### RHS of block
+      if (length(where2split)>0) {
+         newHit <- blat2dmel[i,]
+         if (newHit$strand == "-") {
+            newHit$refEnd   <- refBlocks[last_w,]$start
+            newHit$refStart <- refBlocks[nrow(refBlocks),]$end
+            newHit$end      <- contigBlocks[last_w,]$start
+            newHit$start    <- contigBlocks[nrow(refBlocks),]$end
+         } else { 
+            newHit$refStart <- refBlocks[last_w,]$start
+            newHit$refEnd   <- refBlocks[nrow(refBlocks),]$end
+            newHit$start    <- contigBlocks[last_w,]$start
+            newHit$end      <- contigBlocks[nrow(refBlocks),]$end
+         }
+         chimerasSplit <- rbind(chimerasSplit,newHit)
+
+         chimeras <- rbind(chimeras,blat2dmel[i,])
+      }
    }
 }
+
 
 #print(nrow(blat2dmel[blat2dmel$contig_maxGapSize>=100000,]))
 #print(nrow(blat2dmel[blat2dmel$contig_maxGapSize<100000,]))
@@ -116,24 +156,7 @@ print(nrow(non_chimeras))
 print(nrow(ref_chimeras)+nrow(contig_chimeras)+nrow(chimeras)+nrow(non_chimeras))
 
 
-      dist2last <- ref_blockStarts[-1] - ref_blockStarts[-length(ref_blockStarts)]
-      where2split <- which(dist2last > 1000)#==max(dist2last))
-      where2split <- which(dist2last==max(dist2last))
-
-      contigData <- contigData[! (contigData$contig==focal$contig & contigData$start==focal$start & contigData$end==focal$end),]
-      newHits2add <- rbind(
-         c(chrom,ref_blockStarts[1],ref_blockStarts[where2split]+blockSizes[where2split],
-         focal$contig,blockStarts[1],blockStarts[where2split]+blockSizes[where2split],contig2split$strand),
-         c(chrom,ref_blockStarts[where2split+1],ref_blockStarts[length(ref_blockStarts)]+blockSizes[length(ref_blockStarts)],
-         focal$contig,blockStarts[where2split+1],blockStarts[length(ref_blockStarts)]+blockSizes[length(ref_blockStarts) ],contig2split$strand))
-
-      contigsSplit <- rbind(contigsSplit,list(contig=focal$contig,contigStart=focal$contig_start,contigEnd=focal$contig_end,refChr=focal$chr))
-      newHits <- rbind(newHits,
-         c(chrom,ref_blockStarts[1],ref_blockStarts[where2split]+blockSizes[where2split],
-            as.vector(focal$contig),blockStarts[1],blockStarts[where2split]+blockSizes[where2split],contig2split$strand),
-         c(chrom,ref_blockStarts[where2split+1],ref_blockStarts[length(ref_blockStarts)]+blockSizes[length(ref_blockStarts)],
-            as.vector(focal$contig),blockStarts[where2split+1],blockStarts[length(ref_blockStarts)]+blockSizes[length(ref_blockStarts) ],contig2split$strand))
-   }
+    }
     if (nrow(overlaps) > 1) { contigData[i,]$color <- "red" } 
 }
 
